@@ -38,7 +38,7 @@ let currentSpawnTimer = 0;
 const profileBg = new Image();
 profileBg.src = "assets/profile-bg.png";
 const backgroundImage = new Image();
-backgroundImage.src = "/assets/underwater-bg3.png";
+backgroundImage.src = "assets/underwater-bg3.png";
 const shopBg = new Image();
 shopBg.src = "assets/shop-bg2.png"; // or just "shop-bg.png" if it's in the same folder
 
