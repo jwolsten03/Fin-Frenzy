@@ -30,8 +30,7 @@ let lastLevelScore = 0;
 let levelUpMessages = [];
 let levelUpsThisRun = [];
 let lastPowerUpsCollected = 0;
-
-
+let poisonTimer = 0;
 
 let activeCurrent = null; // holds current info or null
 let currentSpawnTimer = 0;
@@ -39,7 +38,7 @@ let currentSpawnTimer = 0;
 const profileBg = new Image();
 profileBg.src = "assets/profile-bg.png";
 const backgroundImage = new Image();
-backgroundImage.src = "assets/underwater-bg.png";
+backgroundImage.src = "/assets/underwater-bg3.png";
 const shopBg = new Image();
 shopBg.src = "assets/shop-bg2.png"; // or just "shop-bg.png" if it's in the same folder
 
@@ -125,13 +124,15 @@ const powerImages = {
     shield:       new Image(),
     slowMo:       new Image(),
     doubleScore:  new Image(),
-    magnet:       new Image()
+    magnet:       new Image(),
+    chomp:        new Image()
   };
   
   powerImages.shield.src       = "assets/powerup-shield.png";
   powerImages.slowMo.src       = "assets/powerup-slowmo.png";
   powerImages.doubleScore.src  = "assets/powerup-doublescore.png";
   powerImages.magnet.src       = "assets/powerup-magnet.png";
+  powerImages.chomp.src        = "assets/powerup-chomp.png";
   
 
 const fishImages = {
@@ -187,12 +188,14 @@ let activePowerUps = {
   shield: false,
   slowMo: false,
   doubleScore: false,
-  magnet: false
+  magnet: false,
+  chomp: false
 };
 let powerUpTimers = {
   slowMo: 0,
   doubleScore: 0,
-  magnet: 0
+  magnet: 0,
+  chomp: 0
 };
 
 
@@ -487,12 +490,14 @@ function startGame() {
     shield: false,
     slowMo: false,
     doubleScore: false,
-    magnet: false
+    magnet: false,
+    chomp: false
     };
     powerUpTimers = {
     slowMo: 0,
     doubleScore: 0,
-    magnet: 0
+    magnet: 0,
+    chomp: 0
     };
 
   }
@@ -706,6 +711,17 @@ function update() {
           }
         }
       }
+      if (poisonTimer > 0) {
+        poisonTimer--;
+        if (frameCount % 60 === 0) { // 1 damage/sec
+          health -= 10;
+          damageFlashTimer = 6;
+          if (health <= 0) {
+            state = "gameover";
+            backgroundMusic.pause();
+          }
+        }
+      }
       
     if (coinSpawnTimer >= 70) { // ~every 1–1.5 seconds
     let y = Math.random() * (canvas.height - 20);
@@ -719,7 +735,7 @@ function update() {
     }
     powerUpSpawnTimer++;
     if (powerUpSpawnTimer >= 180) { // ~every 3 seconds
-    const types = ["shield", "slowMo", "doubleScore", "magnet"];
+    const types = ["shield", "slowMo", "doubleScore", "magnet", "chomp"];
     const type = types[Math.floor(Math.random() * types.length)];
 
     let y = Math.random() * (canvas.height - 20);
@@ -922,7 +938,22 @@ function update() {
       // Collision detection (only apply damage if cooldown is off)
       if (checkCollision(player, obs) && damageCooldown === 0) {
         crashSound.play();
-      
+        
+        if (activePowerUps.chomp) {
+          // Check if it's a pufferfish
+          if (obs.type === "fall") {
+            // Pufferfish logic
+            poisonTimer = 300; // lasts 5 seconds
+          } else {
+            // Regular fish gives coins
+            coinsCollected += 5;
+            totalCoins += 5;
+            localStorage.setItem("boostdash_totalCoins", totalCoins);
+          }
+          obstacles.splice(i, 1); // Remove fish
+          i--;
+          continue;
+        }
         if (activePowerUps.shield) {
           activePowerUps.shield = false; // absorb one hit
         } else {
@@ -1040,6 +1071,11 @@ function update() {
               activePowerUps.magnet = true;
               powerUpTimers.magnet = 300;
               break;
+            case "chomp":
+              activePowerUps.chomp = true;
+              powerUpTimers.chomp = 300;
+              break;
+              
           }
       
           powerUps.splice(i, 1);
