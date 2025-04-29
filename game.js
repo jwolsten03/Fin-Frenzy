@@ -735,15 +735,20 @@ function update() {
     }
     powerUpSpawnTimer++;
     if (powerUpSpawnTimer >= 180) { // ~every 3 seconds
-    const types = ["shield", "slowMo", "doubleScore", "magnet", "chomp"];
-    const type = types[Math.floor(Math.random() * types.length)];
+      const types = [
+        "shield", "shield", "slowMo", "slowMo",
+        "doubleScore", "doubleScore", "magnet",
+        "chomp" // only 1 of 8 options is chomp
+      ];
+      const type = types[Math.floor(Math.random() * types.length)];
 
     let y = Math.random() * (canvas.height - 20);
+    const size = type === "chomp" ? 60 : 30; // double size if chomp
     powerUps.push({
         x: canvas.width,
         y: y,
-        width: 30,
-        height: 30,
+        width: size,
+        height: size,
         type: type
     });
 
@@ -1073,7 +1078,7 @@ function update() {
               break;
             case "chomp":
               activePowerUps.chomp = true;
-              powerUpTimers.chomp = 300;
+              powerUpTimers.chomp = 900;
               break;
               
           }
@@ -1341,7 +1346,9 @@ function draw() {
   
       if (type !== "shield") {
         const timeLeft = powerUpTimers[type];
-        const percent = timeLeft / 300;
+        const maxDuration = (type === "chomp") ? 900 : 300;
+        const percent = timeLeft / maxDuration;
+
   
         // Radial countdown overlay
         ctx.beginPath();
