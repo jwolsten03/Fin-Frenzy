@@ -73,6 +73,8 @@ frostbitefinPreview.src = "assets/hero-fish-frostbite.png"; // adjust filename i
 const fancyfinPreview = new Image();
 fancyfinPreview.src = "assets/hero-fish-fancy.png";
 
+const chompSound = new Audio("assets/chomp.wav");
+chompSound.volume = 0.5; // adjust if too loud
 
 
 
@@ -1079,6 +1081,8 @@ function update() {
             case "chomp":
               activePowerUps.chomp = true;
               powerUpTimers.chomp = 900;
+              chompSound.currentTime = 0; // ✅ restart from beginning
+              chompSound.play();          // ✅ play chomp sound
               break;
               
           }
@@ -1878,6 +1882,11 @@ function draw() {
     ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
+  if (poisonTimer > 0) {
+    ctx.fillStyle = "rgba(0, 255, 0, 0.15)"; // green transparent overlay
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  
   
 }
 
