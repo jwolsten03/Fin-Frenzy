@@ -486,6 +486,7 @@ function startGame() {
     coins = [];
     coinSpawnTimer = 0;
     coinsCollected = 0;
+    poisonTimer = 0;
     powerUps = [];
     powerUpSpawnTimer = 0;
     activePowerUps = {
@@ -1759,6 +1760,13 @@ function draw() {
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
+    // 🪙 Coin display in top-right
+    const coinDisplay = `💰 ${totalCoins}`;
+    ctx.font = "bold 20px Arial";
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "right";
+    ctx.fillText(coinDisplay, canvas.width - 30, 40);
+
     // Dimmed background panel behind items
     ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
     drawRoundedRect(60, 100, canvas.width - 120, canvas.height - 140, 16);
