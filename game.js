@@ -741,8 +741,11 @@ function update() {
       const types = [
         "shield", "shield", "slowMo", "slowMo",
         "doubleScore", "doubleScore", "magnet",
-        "chomp" // only 1 of 8 options is chomp
-      ];
+        "shield", "slowMo", "doubleScore", "magnet",
+        "shield", "magnet", "slowMo", "doubleScore",
+        // only 1 out of 16 options is chomp
+        "chomp"
+      ];  
       const type = types[Math.floor(Math.random() * types.length)];
 
     let y = Math.random() * (canvas.height - 20);
@@ -928,7 +931,14 @@ function update() {
       switch (obs.type) {
         case "bounce":
           obs.y += obs.vy * obs.dir;
-          if (obs.y <= 0 || obs.y + obs.height >= canvas.height) obs.dir *= -1;
+          if (obs.y <= 0) {
+            obs.y = 0;
+            obs.dir *= -1;
+          }
+          if (obs.y + obs.height >= canvas.height) {
+            obs.y = canvas.height - obs.height;
+            obs.dir *= -1;
+          }
           break;
         case "float":
           obs.y += Math.sin(obs.frame / 20) * obs.vy;
@@ -1206,6 +1216,21 @@ function draw() {
         ctx.save();
         ctx.translate(cx, cy);        // move to sprite center
         ctx.rotate(angle);            // apply tilt
+        // --- Composite glow effect ---
+        let glowColors = [];
+
+        if (activePowerUps.chomp)       glowColors.push("lime");
+        if (activePowerUps.shield)      glowColors.push("blue");
+        if (activePowerUps.slowMo)      glowColors.push("purple");
+        if (activePowerUps.doubleScore) glowColors.push("orange");
+        if (activePowerUps.magnet)      glowColors.push("white");
+
+        // Combine glows by stacking shadows
+        if (glowColors.length > 0) {
+          // Optional: stronger glow for multiple effects
+          ctx.shadowBlur = 15 + 5 * (glowColors.length - 1);
+          ctx.shadowColor = glowColors[0]; // pick first to apply
+        }
         ctx.drawImage(
           heroImg,
           -player.width / 2,
@@ -1213,7 +1238,23 @@ function draw() {
           player.width,
           player.height
         );
+        // Add secondary glows by overlaying transparent copies
+        if (glowColors.length > 1) {
+          for (let i = 1; i < glowColors.length; i++) {
+            ctx.shadowColor = glowColors[i];
+            ctx.drawImage(
+              heroImg,
+              -player.width / 2,
+              -player.height / 2,
+              player.width,
+              player.height
+            );
+          }
+        }
+
         ctx.restore();
+        ctx.shadowColor = "transparent"; // clean reset
+        ctx.shadowBlur = 0;
       }
   
   for (let coin of coins) {
@@ -1227,7 +1268,6 @@ function draw() {
       ctx.fill();
     }
   }
-  
   
 
   // Draw obstacles
