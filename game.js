@@ -12,6 +12,8 @@ let skinPage = 0;
 const skinsPerPage = 3;
 let shopPage = 0;
 const shopSkinsPerPage = 4;
+let achievementPage = 0;
+const achievementsPerPage = 2;
 
 
 // Stats (saved to localStorage)
@@ -352,7 +354,16 @@ document.addEventListener("keydown", e => {
           selectedSkin = selectedSkinId;
           updateHeroSprite(); // ✅ This is the important part
         }
-      }      
+      }
+      else if (currentProfileTab === "achievements") {
+        if (e.code === "KeyQ") {
+          achievementPage = Math.max(0, achievementPage - 1);
+        }
+        if (e.code === "KeyE") {
+          const totalPages = Math.ceil(getAchievements().length / achievementsPerPage);
+          achievementPage = Math.min(totalPages - 1, achievementPage + 1);
+        }
+      }            
     }
     
     if (state === "playing" && e.code === "KeyP") {
@@ -578,6 +589,62 @@ function checkCollision(a, b) {
     ay + ah > by
   );
 }
+function getAchievements() {
+  const unlockedSkins = JSON.parse(localStorage.getItem("finfrenzy_unlockedSkins") || '["default"]');
+  const skinsOwned = unlockedSkins.length;
+
+  return [
+    {
+      icon: "🎮",
+      label: "Fin-tastic Frequency",
+      description: "Play lots of games to show your commitment to the frenzy.",
+      value: stats.totalGames,
+      levels: [
+        { tier: "Bronze", goal: 10 },
+        { tier: "Silver", goal: 25 },
+        { tier: "Gold", goal: 50 },
+        { tier: "Platinum", goal: 100 }
+      ]
+    },
+    {
+      icon: "💰",
+      label: "Coin Catcher",
+      description: "Snag as many coins as you can in a single run.",
+      value: stats.mostCoins,
+      levels: [
+        { tier: "Bronze", goal: 25 },
+        { tier: "Silver", goal: 50 },
+        { tier: "Gold", goal: 100 },
+        { tier: "Platinum", goal: 200 }
+      ]
+    },
+    {
+      icon: "⚡",
+      label: "Power-Up Predator",
+      description: "Collect power-ups throughout your fishy journey.",
+      value: stats.totalPowerups,
+      levels: [
+        { tier: "Bronze", goal: 10 },
+        { tier: "Silver", goal: 25 },
+        { tier: "Gold", goal: 50 },
+        { tier: "Platinum", goal: 100 }
+      ]
+    },
+    {
+      icon: "🐟",
+      label: "Fin Collector",
+      description: "Unlock more skins to customize your underwater style.",
+      value: skinsOwned,
+      levels: [
+        { tier: "Bronze", goal: 3 },
+        { tier: "Silver", goal: 5 },
+        { tier: "Gold", goal: 8 },
+        { tier: "Platinum", goal: 12 }
+      ]
+    }
+  ];
+}
+
 
 function drawRoundedRect(x, y, width, height, radius) {
     ctx.beginPath();
@@ -1605,52 +1672,108 @@ function draw() {
         }
               
         if (currentProfileTab === "achievements") {
-          const achievements = [
-            { icon: "🎮", label: "Play 100 games", value: stats.totalGames, goal: 100 },
-            { icon: "💰", label: "100 coins in one run", value: stats.mostCoins, goal: 100 },
-            { icon: "⚡", label: "Collect 50 power-ups", value: stats.totalPowerups, goal: 50 }
-          ];
-        
+          const achievements = getAchievements();
+          const totalPages = Math.ceil(achievements.length / achievementsPerPage);
+          achievementPage = Math.max(0, Math.min(achievementPage, totalPages - 1));
+          
+          const startIdx = achievementPage * achievementsPerPage;
+          const pageAchievements = achievements.slice(startIdx, startIdx + achievementsPerPage);
+          
           let y = 160;
-          for (let a of achievements) {
-            const percent = Math.min(1, a.value / a.goal);
-        
-            // Card background
-            drawProfileCard(80, y - 20, canvas.width - 160, 60);
-        
-            // Icon & label
-            ctx.fillStyle = "#fff";
-            ctx.font = "16px Arial";
+          const panelWidth = 480; // or adjust as needed
+          const xOffset = (canvas.width - panelWidth) / 2;
+          for (let a of pageAchievements) {          
+            ctx.font = "bold 18px Arial";
+            ctx.fillStyle = "#ffffff";
             ctx.textAlign = "left";
             ctx.fillText(`${a.icon} ${a.label}`, 100, y);
-        
-            // Progress bar
-            const barX = 100;
-            const barY = y + 10;
-            const barW = canvas.width - 200;
-            const barH = 12;
-        
-            ctx.fillStyle = "#333";
-            ctx.fillRect(barX, barY, barW, barH);
-        
-            const grad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
-            grad.addColorStop(0, "#00ff99");
-            grad.addColorStop(1, "#00ccff");
-            ctx.fillStyle = grad;
-            ctx.fillRect(barX, barY, barW * percent, barH);
-        
-            ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 1;
-            ctx.strokeRect(barX, barY, barW, barH);
-        
-            y += 80;
-          }
-        }
+            
+            ctx.font = "bold 13px Arial";
+            ctx.fillStyle = "#ccc";
+            ctx.fillText(a.description, 340, y); // positioned right of label
+            
+            y += 30; // line break after label + description
+            
+          
+            ctx.font = "14px Arial";
+            for (let level of a.levels) {
+              const achieved = a.value >= level.goal;
+              const text = `${level.tier} — ${level.goal}`;
+
+              // Determine tier color
+              let tierColor;
+              switch (level.tier) {
+                case "Bronze":
+                  tierColor = "#cd7f32";
+                  break;
+                case "Silver":
+                  tierColor = "#c0c0c0";
+                  break;
+                case "Gold":
+                  tierColor = "#ffd700";
+                  break;
+                case "Platinum":
+                  tierColor = "#00ffcc"; // bright aqua-green
+                  break;
+                default:
+                  tierColor = "#888";
+              }
+
+              // ✔️ Label and checkmark
+              ctx.fillStyle = achieved ? tierColor : "#bbb";
+              if (achieved) ctx.fillText("✔", xOffset + 100, y);
+              ctx.fillText(text, xOffset + 120, y);
+
+              // Progress bar (always shown)
+              const barX = xOffset + 120;
+              const barY = y + 8;
+              const barW = 200;
+              const barH = 10;
+              const pct = Math.min(1, a.value / level.goal);
+
+              // Background
+              ctx.fillStyle = "#333";
+              drawRoundedRect(barX, barY, barW, barH, 5);
+              ctx.fill();
+
+              // Fill color matches tier
+              ctx.fillStyle = tierColor;
+              drawRoundedRect(barX, barY, barW * pct, barH, 5);
+              ctx.fill();
+
+              // Border
+              ctx.strokeStyle = "#ffffff";
+              ctx.lineWidth = 1;
+              drawRoundedRect(barX, barY, barW, barH, 5);
+              ctx.stroke();
+
+              // Text to the right of the bar
+              ctx.font = "12px Arial";
+              ctx.fillStyle = "#ffffff";
+              ctx.textAlign = "left";
+              ctx.fillText(`${a.value} / ${level.goal}`, barX + barW + 10, barY + barH - 1);
+
+              y += 28;
+            }
+
+                        
+            y += 20;
+          }          
+
+          // Pagination UI
+          ctx.textAlign = "right";
+          ctx.fillStyle = "#aaa";
+          ctx.font = "14px Arial";
+          ctx.fillText(`Page ${achievementPage + 1} of ${totalPages}`, canvas.width - 40, canvas.height - 80);
+          ctx.fillText("Press Q / E to change page", canvas.width - 40, canvas.height - 60);          
+        }   
+
         
       
+        ctx.textAlign = "left";
         ctx.fillStyle = "#aaa";
         ctx.font = "14px Arial";
-        ctx.fillText("←/→ or A/D to switch tabs | ESC or B to return", 100, canvas.height - 40);
+        ctx.fillText("←/→ or A/D to switch tabs | ESC or B to return", 40, canvas.height - 20);        
       
         return; // ⛔ prevent game rendering
       }
