@@ -1850,70 +1850,72 @@ function draw() {
       if (bgX <= -canvas.width) bgX = 0;
     }
   
-    // ✅ Title text
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = "64px 'Sigmar One', cursive";
-    
-    // Add glow effect
-    ctx.shadowColor = "#00ccff";
-    ctx.shadowBlur = 12;
-    
+    // Title text (with shadow effect)
     ctx.fillStyle = "#ffffff";
+    ctx.font = "64px 'Sigmar One', cursive";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "#00ccff"; // Blue shadow
+    ctx.shadowBlur = 12;
     ctx.fillText("FIN FRENZY", canvas.width / 2, canvas.height / 2 - 100);
-    
-    // Reset shadow
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-    
-    ctx.font = "20px 'Sigmar One', cursive";
-    ctx.fillText("Hold = Boost | Tap = Mini Boost | Down = Drop", canvas.width / 2, canvas.height / 2 - 20);
-  
-    // ✅ Set up buttons array each frame
-    buttons = [];
-  
+    ctx.shadowColor = "transparent"; // Remove shadow after title
+
+    // Control directions text (beneath the title)
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "20px Sigmar One";
+    ctx.textAlign = "center";
+    ctx.fillText("HOLD = Boost | TAP = Mini Boost | DOWN = Drop", canvas.width / 2, canvas.height / 2);
+
     // Button styles
-    const btnWidth = 200;
+    const btnWidth = 180;
     const btnHeight = 50;
-    const btnX = canvas.width / 2 - btnWidth / 2;
-    const startY = canvas.height / 2 + 10;
-  
-    const labels = [
-      { text: "Start Game",    action: () => startGame() },
-      { text: "Player Profile",action: () => { state = "profile"; } },
-      { text: "Shop",          action: () => { state = "shop"; } },
-      { text: "Leaderboard",    action: () => { state = "leaderboard"; } }
+    const btnMargin = 20;
+    const startY = canvas.height / 2 + 40; // Slightly lower to account for the directions text
+
+    // Button positions for 2x2 grid
+    const startX = (canvas.width - 2 * btnWidth - btnMargin) / 2; // Center the buttons
+    const buttonPositions = [
+        { x: startX, y: startY },                      // First button
+        { x: startX + btnWidth + btnMargin, y: startY }, // Second button
+        { x: startX, y: startY + btnHeight + btnMargin }, // Third button
+        { x: startX + btnWidth + btnMargin, y: startY + btnHeight + btnMargin } // Fourth button
     ];
-  
-    ctx.font = "bold 18px Arial";
-  
+
+    const labels = [
+        { text: "Start Game",    action: () => startGame() },
+        { text: "Player Profile", action: () => { state = "profile"; } },
+        { text: "Shop",          action: () => { state = "shop"; } },
+        { text: "Leaderboard",    action: () => { state = "leaderboard"; } }
+    ];
+
+    // Draw buttons in a 2x2 grid layout
     for (let i = 0; i < labels.length; i++) {
-      const y = startY + i * 70;
-  
-      // Button shadow and shape
-      ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-      drawRoundedRect(btnX, y, btnWidth, btnHeight, 12);
-      ctx.fill();
-  
-      ctx.strokeStyle = "#00ffff";
-      ctx.lineWidth = 2;
-      drawRoundedRect(btnX, y, btnWidth, btnHeight, 12);
-      ctx.stroke();
-  
-      // Button text
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(labels[i].text, canvas.width / 2, y + 30);
-  
-      // Add to buttons list for click detection
-      buttons.push({
-        x: btnX,
-        y: y,
-        width: btnWidth,
-        height: btnHeight,
-        onClick: labels[i].action
-      });
+        const button = buttonPositions[i];
+        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+        drawRoundedRect(button.x, button.y, btnWidth, btnHeight, 12);
+        ctx.fill();
+
+        ctx.strokeStyle = "#00ccff"; // Blue outline
+        ctx.lineWidth = 2;
+        drawRoundedRect(button.x, button.y, btnWidth, btnHeight, 12);
+        ctx.stroke();
+
+        // Button text (original font style)
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 18px Arial"; // Keeping original font
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(labels[i].text, button.x + btnWidth / 2, button.y + btnHeight / 2);
+
+        // Add to buttons list for click detection
+        buttons.push({
+            x: button.x,
+            y: button.y,
+            width: btnWidth,
+            height: btnHeight,
+            onClick: labels[i].action
+        });
     }
-  }
+}
 
   
   
