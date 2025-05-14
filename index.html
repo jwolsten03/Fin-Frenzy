@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
   <title>Fin Frenzy</title>
 
-  <!-- ✅ Load the font correctly here -->
+  <!-- ✅ Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Titan+One&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&display=swap" rel="stylesheet">
@@ -13,9 +13,32 @@
   <link href="https://fonts.googleapis.com/css2?family=Coiny&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="style.css">
+
+  <!-- ✅ Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js"></script>
+
+  <!-- ✅ Firebase Config and Initialization -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAvw0xXFqPZ3Otv9s9QqiRij5iLgSBn32U",
+      authDomain: "finfrenzyleaderboard.firebaseapp.com",
+      projectId: "finfrenzyleaderboard",
+      storageBucket: "finfrenzyleaderboard.appspot.com",
+      messagingSenderId: "792417223594",
+      appId: "1:792417223594:web:f516f6a48c83e51e8b61d3",
+      measurementId: "G-W9WD9DPES7"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+  </script>
 </head>
 <body>
   <canvas id="gameCanvas" width="800" height="500" tabindex="0" style="touch-action: none; will-change: transform;"></canvas>
+   
+  <!-- ✅ Your game script LAST -->
   <script src="game.js"></script>
 </body>
 </html>

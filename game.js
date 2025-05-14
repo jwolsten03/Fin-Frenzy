@@ -43,6 +43,9 @@ const backgroundImage = new Image();
 backgroundImage.src = "assets/underwater-bg3.png";
 const shopBg = new Image();
 shopBg.src = "assets/shop-bg2.png"; // or just "shop-bg.png" if it's in the same folder
+const leaderboardBg = new Image();
+leaderboardBg.src = "assets/leaderboard-bg.png"
+
 
 
 let boostPressedLastFrame = false;
@@ -241,7 +244,12 @@ const boostPower = -10 * 0.75;
 
 // ----------------- keyboard controls -----------------
 document.addEventListener("keydown", e => {
-    keys[e.code] = true;     
+    keys[e.code] = true;   
+    if (state === "leaderboard") {
+      if (e.key === "Escape" || e.key === "b") {
+        state = "title";
+      }
+    }
     if (state === "title" && e.code === "Enter") startGame();
     if (state === "title" && e.code === "KeyS") state = "shop"; // temporary key
     if (state === "shop" && e.code === "Escape") state = "title";
@@ -461,6 +469,87 @@ function drawButton(label, x, y, width, height, onClick) {
   ctx.fillText(label, x + width / 2, y + height / 2);
 }
 
+function renderLeaderboardScreen() {
+  ctx.fillStyle = "#001";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw the leaderboard background image
+  if (leaderboardBg.complete && leaderboardBg.naturalWidth > 0) {
+    ctx.drawImage(leaderboardBg, 0, 0, canvas.width, canvas.height);  // Use this image as the background
+  }
+
+  // Add a semi-transparent dark overlay for better contrast with text
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Set text style with gradient and bold
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  gradient.addColorStop(0, "#ffb347");  // Light orange
+  gradient.addColorStop(1, "#ff7f00");  // Dark orange
+
+  ctx.fillStyle = gradient; // Apply gradient
+  ctx.font = "bold 40px 'Sigmar One', cursive"; // Fancy cursive font, bold
+  ctx.textAlign = "center";
+  ctx.shadowColor = "#ff7f00"; // Orange shadow
+  ctx.shadowBlur = 12;
+  ctx.fillText("Leaderboard", canvas.width / 2, 80);
+
+  // Reset shadow after the title
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+
+  ctx.font = "bold 24px 'Sigmar One', cursive"; // Fancy cursive font, bold
+  ctx.fillText("Top Scores:", canvas.width / 2, 140);
+
+  // Get leaderboard data from localStorage
+  let leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+
+  // Sort the leaderboard in descending order by score
+  leaderboard.sort((a, b) => b.score - a.score);
+
+  // Limit to top 5 scores
+  leaderboard = leaderboard.slice(0, 5);
+
+  // Display the leaderboard
+  const textSpacing = 40;
+  leaderboard.forEach((entry, i) => {
+    const text = `${i + 1}. ${entry.name} - ${entry.score}m`;
+    const textWidth = ctx.measureText(text).width;
+    const textX = canvas.width / 2 - textWidth / 2; // Center the text
+
+    ctx.font = "bold 22px 'Sigmar One', cursive"; // Fancy cursive font, bold
+    ctx.fillStyle = "#fff";  // White text for names and scores
+    ctx.fillText(text, textX, 180 + i * textSpacing);
+  });
+
+  // Add a button text at the bottom with a nice gradient and shadow
+  ctx.font = "bold 18px 'Sigmar One', cursive"; // Fancy cursive font, bold
+  ctx.fillStyle = "#fff";
+  ctx.shadowColor = "#ffb347";  // Light shadow for the button
+  ctx.shadowBlur = 8;
+  ctx.fillText("Press ESC to return", canvas.width / 2, canvas.height - 40);
+
+  // Reset shadow
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+}
+
+function saveLeaderboard(name, score) {
+  // Get existing leaderboard from localStorage
+  let leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+
+  // Add the new score
+  leaderboard.push({ name: name || "Player", score: score });
+
+  // Sort leaderboard by score
+  leaderboard.sort((a, b) => b.score - a.score);
+
+  // Limit to top 5 scores
+  leaderboard = leaderboard.slice(0, 5);
+
+  // Save the updated leaderboard back to localStorage
+  localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+}
 
 // Start or restart the game
 function startGame() {
@@ -763,455 +852,424 @@ function getTiltAngle(dy) {
   
 // Main update function
 function update() {
-    if (state === "splash") {
-        splashTimer--;
-        if (splashTimer <= 0) state = "title";
-        return;
+  if (state === "splash") {
+    splashTimer--;
+    if (splashTimer <= 0) state = "title";
+    return;
+  }
+
+  if (state !== "playing") return;
+
+  frameCount++; // Always increment to avoid freeze during edge damage
+  coinSpawnTimer++;
+  for (let key in powerUpTimers) {
+    if (powerUpTimers[key] > 0) {
+      powerUpTimers[key]--;
+      if (powerUpTimers[key] === 0) {
+        activePowerUps[key] = false;
       }
-    
-      if (state !== "playing") return;
-      
-    frameCount++; // Always increment to avoid freeze during edge damage
-    coinSpawnTimer++;
-    for (let key in powerUpTimers) {
-        if (powerUpTimers[key] > 0) {
-          powerUpTimers[key]--;
-          if (powerUpTimers[key] === 0) {
-            activePowerUps[key] = false;
-          }
-        }
+    }
+  }
+  
+  if (poisonTimer > 0) {
+    poisonTimer--;
+    if (frameCount % 60 === 0) { // 1 damage/sec
+      health -= 10;
+      damageFlashTimer = 6;
+      if (health <= 0) {
+        state = "gameover";
+        backgroundMusic.pause();
       }
-      if (poisonTimer > 0) {
-        poisonTimer--;
-        if (frameCount % 60 === 0) { // 1 damage/sec
-          health -= 10;
-          damageFlashTimer = 6;
-          if (health <= 0) {
-            state = "gameover";
-            backgroundMusic.pause();
-          }
-        }
-      }
-      
-    if (coinSpawnTimer >= 70) { // ~every 1–1.5 seconds
+    }
+  }
+
+  if (coinSpawnTimer >= 70) { // ~every 1–1.5 seconds
     let y = Math.random() * (canvas.height - 20);
     coins.push({
-        x: canvas.width,
-        y: y,
-        width: 30,
-        height: 30
+      x: canvas.width,
+      y: y,
+      width: 30,
+      height: 30
     });
     coinSpawnTimer = 0;
-    }
-    powerUpSpawnTimer++;
-    if (powerUpSpawnTimer >= 180) { // ~every 3 seconds
-      const types = [
-        "shield", "shield", "slowMo", "slowMo",
-        "doubleScore", "doubleScore", "magnet",
-        "shield", "slowMo", "doubleScore", "magnet",
-        "shield", "magnet", "slowMo", "doubleScore",
-        // only 1 out of 16 options is chomp
-        "chomp"
-      ];  
-      const type = types[Math.floor(Math.random() * types.length)];
+  }
+  
+  powerUpSpawnTimer++;
+  if (powerUpSpawnTimer >= 180) { // ~every 3 seconds
+    const types = [
+      "shield", "shield", "slowMo", "slowMo",
+      "doubleScore", "doubleScore", "magnet",
+      "shield", "slowMo", "doubleScore", "magnet",
+      "shield", "magnet", "slowMo", "doubleScore",
+      // only 1 out of 16 options is chomp
+      "chomp"
+    ];
+    const type = types[Math.floor(Math.random() * types.length)];
 
     let y = Math.random() * (canvas.height - 20);
     const size = type === "chomp" ? 60 : 30; // double size if chomp
     powerUps.push({
-        x: canvas.width,
-        y: y,
-        width: size,
-        height: size,
-        type: type
+      x: canvas.width,
+      y: y,
+      width: size,
+      height: size,
+      type: type
     });
 
     powerUpSpawnTimer = 0;
-    }
-    currentSpawnTimer++;
-    if (!activeCurrent && currentSpawnTimer > 100) { // every 10s or so
-      const direction = "up";
-      const height = 100;
-      const y = Math.random() * (canvas.height - height);
-      activeCurrent = {
-        x: canvas.width,
-        y,
-        width: 100,
-        height,
-        direction,
-        duration: 300  // lasts for 5 seconds
-      };
-      currentSpawnTimer = 0;
-    }
-    if (activeCurrent) {
-  activeCurrent.x -= getCurrentSpeed();
-
-  // Apply push if player is inside current zone
-  if (
-    player.x + player.width > activeCurrent.x &&
-    player.x < activeCurrent.x + activeCurrent.width &&
-    player.y + player.height > activeCurrent.y &&
-    player.y < activeCurrent.y + activeCurrent.height
-  ) {
-    player.dy += activeCurrent.direction === "up" ? -0.5 : 0.5;
   }
 
-  // Decrease duration or remove
-  activeCurrent.duration--;
-  if (activeCurrent.duration <= 0 || activeCurrent.x + activeCurrent.width < 0) {
-    activeCurrent = null;
+  currentSpawnTimer++;
+  if (!activeCurrent && currentSpawnTimer > 100) { // every 10s or so
+    const direction = "up";
+    const height = 100;
+    const y = Math.random() * (canvas.height - height);
+    activeCurrent = {
+      x: canvas.width,
+      y,
+      width: 100,
+      height,
+      direction,
+      duration: 300  // lasts for 5 seconds
+    };
+    currentSpawnTimer = 0;
   }
-}
-  
-    if (state !== "playing") return;
-  
-    // Handle damage cooldown
-    if (damageCooldown > 0) damageCooldown--;
-  
-    const boostHeld   = activeTouch || keys["Space"];  // works on desktop + mobile
-    // Boost logic with sound
-    if (boostHeld && !boostPressedLastFrame) {
-        player.dy = boostPower;
-        boostSound.currentTime = 0;
-        boostSound.play();
-    }
-    boostPressedLastFrame = boostHeld;
-  
-    const dropPressed = keys["ArrowDown"];             // keep fast‑fall key
-    
-    if (boostHeld)      player.dy = boostPower;
-    if (dropPressed)    player.dy += gravity * 1.5;
-    
-    
-  
-    // Gravity
-    player.dy += gravity;
-    player.y += player.dy;
-  
-    // Floor and ceiling limits
-    if (player.y + player.height > canvas.height) {
-      player.y = canvas.height - player.height;
-      player.dy = 0;
-    }
-    if (player.y < 0) {
-      player.y = 0;
-      player.dy = 0;
-    }
-    
-    if (edgeDamageCooldown > 0) edgeDamageCooldown--;
-    if (damageFlashTimer > 0) damageFlashTimer--;
 
-    // Edge timer + damage
-    if (player.y <= 5 || player.y + player.height >= canvas.height - 5) {
-        if (health <= 0) {
-            state = "gameover";
-          
-            // Update stats
-            stats.totalGames += 1;
-            stats.mostCoins = Math.max(stats.mostCoins, coinsCollected);
-            stats.totalPowerups += powerUpsCollectedThisRun;
-            localStorage.setItem("finfrenzy_stats", JSON.stringify(stats));
-            localStorage.setItem("finfrenzy_xp", currentXP);
-            localStorage.setItem("finfrenzy_level", currentLevel);
+  if (activeCurrent) {
+    activeCurrent.x -= getCurrentSpeed();
 
-          
-            if (score > highScore) {
-              highScore = score;
-              localStorage.setItem("boostdash_highscore", highScore);
-            }
-            if (score > bestDistance) {
-              bestDistance = score;
-              localStorage.setItem("boostdash_bestDistance", bestDistance);
-            }
-          
-            totalCoins += coinsCollected;
-            localStorage.setItem("boostdash_totalCoins", totalCoins);
-          
-            backgroundMusic.pause();
-          }           
-          if (score > bestDistance) {
-            bestDistance = score;
-            localStorage.setItem("boostdash_bestDistance", bestDistance);
-          }
+    // Apply push if player is inside current zone
+    if (
+      player.x + player.width > activeCurrent.x &&
+      player.x < activeCurrent.x + activeCurrent.width &&
+      player.y + player.height > activeCurrent.y &&
+      player.y < activeCurrent.y + activeCurrent.height
+    ) {
+      player.dy += activeCurrent.direction === "up" ? -0.5 : 0.5;
+    }
+
+    // Decrease duration or remove
+    activeCurrent.duration--;
+    if (activeCurrent.duration <= 0 || activeCurrent.x + activeCurrent.width < 0) {
+      activeCurrent = null;
+    }
+  }
+
+  if (state !== "playing") return;
+
+  // Handle damage cooldown
+  if (damageCooldown > 0) damageCooldown--;
+
+  const boostHeld = activeTouch || keys["Space"];  // works on desktop + mobile
+  // Boost logic with sound
+  if (boostHeld && !boostPressedLastFrame) {
+    player.dy = boostPower;
+    boostSound.currentTime = 0;
+    boostSound.play();
+  }
+  boostPressedLastFrame = boostHeld;
+
+  const dropPressed = keys["ArrowDown"];             // keep fast‑fall key
+  
+  if (boostHeld) player.dy = boostPower;
+  if (dropPressed) player.dy += gravity * 1.5;
+
+  // Gravity
+  player.dy += gravity;
+  player.y += player.dy;
+
+  // Floor and ceiling limits
+  if (player.y + player.height > canvas.height) {
+    player.y = canvas.height - player.height;
+    player.dy = 0;
+  }
+  if (player.y < 0) {
+    player.y = 0;
+    player.dy = 0;
+  }
+
+  if (edgeDamageCooldown > 0) edgeDamageCooldown--;
+  if (damageFlashTimer > 0) damageFlashTimer--;
+
+  // Edge timer + damage
+  if (player.y <= 5 || player.y + player.height >= canvas.height - 5) {
+    if (health <= 0) {
+      // Update stats
+      stats.totalGames += 1;
+      stats.mostCoins = Math.max(stats.mostCoins, coinsCollected);
+      stats.totalPowerups += powerUpsCollectedThisRun;
+      localStorage.setItem("finfrenzy_stats", JSON.stringify(stats));
+      localStorage.setItem("finfrenzy_xp", currentXP);
+      localStorage.setItem("finfrenzy_level", currentLevel);
+
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("boostdash_highscore", highScore);
       }
-      
-    // Spawn obstacles
-    obstacleSpawnTimer++;
-    if (obstacleSpawnTimer >= nextObstacleIn) {
+      if (score > bestDistance) {
+        bestDistance = score;
+        localStorage.setItem("boostdash_bestDistance", bestDistance);
+      }
 
-    /* ---------- choose height & movement type (unchanged) ---------- */
-    const height = 60;                                   // or whatever size you’re using
+      totalCoins += coinsCollected;
+      localStorage.setItem("boostdash_totalCoins", totalCoins);
+
+      backgroundMusic.pause();
+
+      // Save score to leaderboard
+      const playerName = prompt("Enter your name to save your score:");
+      saveLeaderboard(playerName, score);
+
+      state = "gameover";
+    }
+    if (score > bestDistance) {
+      bestDistance = score;
+      localStorage.setItem("boostdash_bestDistance", bestDistance);
+    }
+  }
+
+  // Spawn obstacles
+  obstacleSpawnTimer++;
+  if (obstacleSpawnTimer >= nextObstacleIn) {
+    const height = 60;
     const movementTypes = ["bounce", "float", "fall", "zigzag"];
     const type = movementTypes[Math.floor(Math.random() * movementTypes.length)];
 
-    /* ---------- NEW: decide where to spawn on the Y‑axis ---------- */
     let y;
-    const roll = Math.random();        // 0–1
+    const roll = Math.random();
     if (roll < 0.3) {
-        // 20 % chance → ceiling
-        y = 0;
+      // 20% chance → ceiling
+      y = 0;
     } else if (roll < 0.6) {
-        // next 20 % → floor
-        y = canvas.height - height;
+      // next 20% → floor
+      y = canvas.height - height;
     } else {
-        // remaining 60 % → anywhere in between
-        y = Math.random() * (canvas.height - height);
+      // remaining 60% → anywhere in between
+      y = Math.random() * (canvas.height - height);
     }
 
-    /* ---------- push obstacle as before ---------- */
     obstacles.push({
-        x: canvas.width,
-        y: y,
-        width: 60,
-        height: height,
-        vy: 0.5 + Math.random(),
-        dir: Math.random() < 0.5 ? 1 : -1,
-        type: type,
-        frame: 0,
-        isEnemy: Math.random() < 0.1      // chasing flag (unchanged)
+      x: canvas.width,
+      y: y,
+      width: 60,
+      height: height,
+      vy: 0.5 + Math.random(),
+      dir: Math.random() < 0.5 ? 1 : -1,
+      type: type,
+      frame: 0,
+      isEnemy: Math.random() < 0.1
     });
 
-    /* ---------- reset spawn timer (unchanged) ---------- */
     obstacleSpawnTimer = 0;
     const speed = getCurrentSpeed();
     const minDelay = Math.max(20, 100 - speed * 8);
     const maxDelay = Math.max(40, 140 - speed * 10);
-    
-    
-    nextObstacleIn = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;    
+
+    nextObstacleIn = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+  }
+
+  // Move obstacles and check for collisions
+  for (let i = 0; i < obstacles.length; i++) {
+    let obs = obstacles[i];
+    if (obs.isEnemy) {
+      const dy = player.y - obs.y;
+      obs.y += dy * 0.025; // Smooth following
+    }
+    obs.dy = obs.y - obs.prevY;
+    obs.prevY = obs.y;
+    obs.x -= getCurrentSpeed();
+    obs.frame++;
+
+    switch (obs.type) {
+      case "bounce":
+        obs.y += obs.vy * obs.dir;
+        if (obs.y <= 0) {
+          obs.y = 0;
+          obs.dir *= -1;
+        }
+        if (obs.y + obs.height >= canvas.height) {
+          obs.y = canvas.height - obs.height;
+          obs.dir *= -1;
+        }
+        break;
+      case "float":
+        obs.y += Math.sin(obs.frame / 20) * obs.vy;
+        break;
+      case "fall":
+        obs.y += obs.vy;
+        if (obs.y + obs.height > canvas.height) obs.y = 0;
+        break;
+      case "zigzag":
+        obs.y += (Math.sin(obs.frame / 10) > 0 ? 1 : -1) * obs.vy * 2;
+        if (obs.y <= 0 || obs.y + obs.height >= canvas.height) obs.dir *= -1;
+        break;
     }
 
-  
-    // Move obstacles and check for collisions
-    for (let i = 0; i < obstacles.length; i++) {
-      let obs = obstacles[i];
-      // If it's a chasing enemy, follow the player's Y
-      if (obs.isEnemy) {
-        const dy = player.y - obs.y;
-        obs.y += dy * 0.025; // Smooth following
-      }
-      obs.dy   = obs.y - obs.prevY; // vertical movement this frame
-      obs.prevY = obs.y;            // store for next frame
-      // Horizontal movement
-      obs.x -= getCurrentSpeed();
-      obs.frame++;
-  
-      switch (obs.type) {
-        case "bounce":
-          obs.y += obs.vy * obs.dir;
-          if (obs.y <= 0) {
-            obs.y = 0;
-            obs.dir *= -1;
-          }
-          if (obs.y + obs.height >= canvas.height) {
-            obs.y = canvas.height - obs.height;
-            obs.dir *= -1;
-          }
-          break;
-        case "float":
-          obs.y += Math.sin(obs.frame / 20) * obs.vy;
-          break;
-        case "fall":
-          obs.y += obs.vy;
-          if (obs.y + obs.height > canvas.height) obs.y = 0;
-          break;
-        case "zigzag":
-          obs.y += (Math.sin(obs.frame / 10) > 0 ? 1 : -1) * obs.vy * 2;
-          if (obs.y <= 0 || obs.y + obs.height >= canvas.height) obs.dir *= -1;
-          break;
-      }
-  
-      // Collision detection (only apply damage if cooldown is off)
-      if (checkCollision(player, obs) && damageCooldown === 0) {
-        crashSound.play();
-        
-        if (activePowerUps.chomp) {
-          // Check if it's a pufferfish
-          if (obs.type === "fall") {
-            // Pufferfish logic
-            poisonTimer = 300; // lasts 5 seconds
-          } else {
-            // Regular fish gives coins
-            coinsCollected += 5;
-            totalCoins += 5;
-            localStorage.setItem("boostdash_totalCoins", totalCoins);
-          }
-          obstacles.splice(i, 1); // Remove fish
-          i--;
-          continue;
-        }
-        if (activePowerUps.shield) {
-          activePowerUps.shield = false; // absorb one hit
+    if (checkCollision(player, obs) && damageCooldown === 0) {
+      crashSound.play();
+
+      if (activePowerUps.chomp) {
+        if (obs.type === "fall") {
+          poisonTimer = 300; // lasts 5 seconds
         } else {
-          health -= 50;
-          damageFlashTimer = 10;
-          if (health <= 0) {
-            state = "gameover";
-          
-            stats.totalGames += 1;
-            stats.mostCoins = Math.max(stats.mostCoins, coinsCollected);
-            stats.totalPowerups += powerUpsCollectedThisRun;
-            localStorage.setItem("finfrenzy_stats", JSON.stringify(stats));
-            localStorage.setItem("finfrenzy_xp", currentXP);
-            localStorage.setItem("finfrenzy_level", currentLevel);
-          
-            if (score > highScore) {
-              highScore = score;
-              localStorage.setItem("boostdash_highscore", highScore);
-            }
-          
-            if (score > bestDistance) {
-              bestDistance = score;
-              localStorage.setItem("boostdash_bestDistance", bestDistance);
-            }
-          
-            totalCoins += coinsCollected;
-            localStorage.setItem("boostdash_totalCoins", totalCoins);
-          
-            backgroundMusic.pause();
-            if (levelUpsThisRun.length > 0) {
-              let summary = "Level Ups This Run:\n";
-              for (let msg of levelUpsThisRun) {
-                summary += `🎉 Level ${msg.level} — +${msg.coins} coins\n`;
-              }
-              setTimeout(() => {
-                alert(summary);
-                levelUpsThisRun = [];
-              }, 100); // slight delay to let gameover screen draw first
-            }
-          }
-          
+          coinsCollected += 5;
+          totalCoins += 5;
+          localStorage.setItem("boostdash_totalCoins", totalCoins);
         }
-      
-        damageCooldown = 30;
-      }
-      
-  
-      // Remove if off-screen
-      if (obs.x + obs.width < 0) {
         obstacles.splice(i, 1);
         i--;
+        continue;
       }
-    }
-    for (let i = 0; i < coins.length; i++) {
-        let coin = coins[i];
-        coin.x -= getCurrentSpeed();
-      
-        if (checkCollision(player, coin)) {
-          collectSound.play();
-          coinsCollected++;
-          coins.splice(i, 1);
-          i--;
-          continue;
-        }
-      
-        if (coin.x + coin.width < 0) {
-          coins.splice(i, 1);
-          i--;
-        }
-        if (activePowerUps.magnet) {
-            let dx = player.x - coin.x;
-            let dy = player.y - coin.y;
-            let dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 250) {
-              let pullStrength = Math.max(0.08, (250 - dist) / 250 * 0.2); // base + scaling
-              coin.x += dx * pullStrength;
-              coin.y += dy * pullStrength;
-            }
-        }
-          
-      }
-      
-      for (let i = 0; i < powerUps.length; i++) {
-        let p = powerUps[i];
-        p.x -= getCurrentSpeed();
-        // Update global speed multiplier
-        if (activePowerUps.slowMo) {
-            globalSpeedMultiplier = 0.5;
-            powerUpTimers.slowMo--;
-            if (powerUpTimers.slowMo <= 0) {
-            activePowerUps.slowMo = false;
-            globalSpeedMultiplier = 1;
-            }
-        } else {
-            globalSpeedMultiplier = 1;
-        }
-  
-      
-        if (checkCollision(player, p)) {
-          collectSound.play();
-          powerUpsCollectedThisRun++;
-          switch (p.type) {
-            case "shield":
-              activePowerUps.shield = true;
-              break;
-            case "slowMo":
-              activePowerUps.slowMo = true;
-              powerUpTimers.slowMo = 300; // 5 seconds
-              break;
-            case "doubleScore":
-              activePowerUps.doubleScore = true;
-              powerUpTimers.doubleScore = 300;
-              break;
-            case "magnet":
-              activePowerUps.magnet = true;
-              powerUpTimers.magnet = 300;
-              break;
-            case "chomp":
-              activePowerUps.chomp = true;
-              powerUpTimers.chomp = 900;
-              chompSound.currentTime = 0; // ✅ restart from beginning
-              chompSound.play();          // ✅ play chomp sound
-              break;
-              
+
+      if (activePowerUps.shield) {
+        activePowerUps.shield = false;
+      } else {
+        health -= 50;
+        damageFlashTimer = 10;
+        if (health <= 0) {
+          // Update stats
+          stats.totalGames += 1;
+          stats.mostCoins = Math.max(stats.mostCoins, coinsCollected);
+          stats.totalPowerups += powerUpsCollectedThisRun;
+          localStorage.setItem("finfrenzy_stats", JSON.stringify(stats));
+          localStorage.setItem("finfrenzy_xp", currentXP);
+          localStorage.setItem("finfrenzy_level", currentLevel);
+
+          if (score > highScore) {
+            highScore = score;
+            localStorage.setItem("boostdash_highscore", highScore);
           }
-      
-          powerUps.splice(i, 1);
-          i--;
-          continue;
-        }
-      
-        if (p.x + p.width < 0) {
-          powerUps.splice(i, 1);
-          i--;
+
+          if (score > bestDistance) {
+            bestDistance = score;
+            localStorage.setItem("boostdash_bestDistance", bestDistance);
+          }
+
+          totalCoins += coinsCollected;
+          localStorage.setItem("boostdash_totalCoins", totalCoins);
+
+          backgroundMusic.pause();
+
+          // Save score to leaderboard
+          const playerName = prompt("Enter your name to save your score:");
+          saveLeaderboard(playerName, score);
+
+          state = "gameover";
         }
       }
-        
-    // Score increase
-    if (frameCount % 6 === 0) {
-      score += activePowerUps.doubleScore ? 2 : 1;
-    
-      const newCoins = coinsCollected - lastLevelScore;
-      const newPowerUps = powerUpsCollectedThisRun - (lastPowerUpsCollected || 0);
-      
-      const gainedXP =
-        newCoins * 4.0 +
-        newPowerUps * 6.0;
-      
-      lastLevelScore = coinsCollected;
-      lastPowerUpsCollected = powerUpsCollectedThisRun;
-      
-    
-      currentXP += gainedXP;
-      lastLevelScore = coinsCollected;
-    
-      // Level up if reached XP threshold
-      while (currentXP >= getXPThreshold(currentLevel)) {
-        currentXP -= getXPThreshold(currentLevel);
-        currentLevel++;
-        const reward = currentLevel * 25; // reward scales with level
-        totalCoins += reward;
-        localStorage.setItem("boostdash_totalCoins", totalCoins);
-        levelUpMessages.push({ level: currentLevel, coins: reward });
-        levelUpsThisRun.push({ level: currentLevel, coins: reward });
 
-      }
-    
-      localStorage.setItem("finfrenzy_level", currentLevel);
-      localStorage.setItem("finfrenzy_xp", currentXP); 
-
+      damageCooldown = 30;
     }
-          
+
+    if (obs.x + obs.width < 0) {
+      obstacles.splice(i, 1);
+      i--;
+    }
   }
+
+  for (let i = 0; i < coins.length; i++) {
+    let coin = coins[i];
+    coin.x -= getCurrentSpeed();
+
+    if (checkCollision(player, coin)) {
+      collectSound.play();
+      coinsCollected++;
+      coins.splice(i, 1);
+      i--;
+      continue;
+    }
+
+    if (coin.x + coin.width < 0) {
+      coins.splice(i, 1);
+      i--;
+    }
+
+    if (activePowerUps.magnet) {
+      let dx = player.x - coin.x;
+      let dy = player.y - coin.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 250) {
+        let pullStrength = Math.max(0.08, (250 - dist) / 250 * 0.2);
+        coin.x += dx * pullStrength;
+        coin.y += dy * pullStrength;
+      }
+    }
+  }
+
+  for (let i = 0; i < powerUps.length; i++) {
+    let p = powerUps[i];
+    p.x -= getCurrentSpeed();
+
+    if (checkCollision(player, p)) {
+      collectSound.play();
+      powerUpsCollectedThisRun++;
+      switch (p.type) {
+        case "shield":
+          activePowerUps.shield = true;
+          break;
+        case "slowMo":
+          activePowerUps.slowMo = true;
+          powerUpTimers.slowMo = 300; // 5 seconds
+          break;
+        case "doubleScore":
+          activePowerUps.doubleScore = true;
+          powerUpTimers.doubleScore = 300;
+          break;
+        case "magnet":
+          activePowerUps.magnet = true;
+          powerUpTimers.magnet = 300;
+          break;
+        case "chomp":
+          activePowerUps.chomp = true;
+          powerUpTimers.chomp = 900;
+          chompSound.currentTime = 0;
+          chompSound.play();
+          break;
+      }
+
+      powerUps.splice(i, 1);
+      i--;
+      continue;
+    }
+
+    if (p.x + p.width < 0) {
+      powerUps.splice(i, 1);
+      i--;
+    }
+  }
+
+  // Score increase
+  if (frameCount % 6 === 0) {
+    score += activePowerUps.doubleScore ? 2 : 1;
+
+    const newCoins = coinsCollected - lastLevelScore;
+    const newPowerUps = powerUpsCollectedThisRun - (lastPowerUpsCollected || 0);
+
+    const gainedXP =
+      newCoins * 4.0 +
+      newPowerUps * 6.0;
+
+    lastLevelScore = coinsCollected;
+    lastPowerUpsCollected = powerUpsCollectedThisRun;
+
+    currentXP += gainedXP;
+    lastLevelScore = coinsCollected;
+
+    // Level up if reached XP threshold
+    while (currentXP >= getXPThreshold(currentLevel)) {
+      currentXP -= getXPThreshold(currentLevel);
+      currentLevel++;
+      const reward = currentLevel * 25; // reward scales with level
+      totalCoins += reward;
+      localStorage.setItem("boostdash_totalCoins", totalCoins);
+      levelUpMessages.push({ level: currentLevel, coins: reward });
+      levelUpsThisRun.push({ level: currentLevel, coins: reward });
+    }
+
+    localStorage.setItem("finfrenzy_level", currentLevel);
+    localStorage.setItem("finfrenzy_xp", currentXP);
+  }
+}
   
 
 function drawProfileCard(x, y, width, height) {
@@ -1266,7 +1324,7 @@ function draw() {
         ctx.globalAlpha = 1;
         return; // ⛔ stop drawing anything else
     }
-  
+    
     // Only draw the background if it's fully loaded
     if (backgroundImage.complete && backgroundImage.naturalWidth > 0) {
       ctx.drawImage(backgroundImage, bgX, 0, canvas.width, canvas.height);
@@ -1777,6 +1835,11 @@ function draw() {
       
         return; // ⛔ prevent game rendering
       }
+  if (state === "leaderboard") {
+        renderLeaderboardScreen();
+        return;
+      }
+      
   // Title screen
   if (state === "title") {
     // ✅ Draw scrolling background
@@ -1818,7 +1881,8 @@ function draw() {
     const labels = [
       { text: "Start Game",    action: () => startGame() },
       { text: "Player Profile",action: () => { state = "profile"; } },
-      { text: "Shop",          action: () => { state = "shop"; } }
+      { text: "Shop",          action: () => { state = "shop"; } },
+      { text: "Leaderboard",    action: () => { state = "leaderboard"; } }
     ];
   
     ctx.font = "bold 18px Arial";
@@ -1850,7 +1914,7 @@ function draw() {
       });
     }
   }
-  
+
   
   
   if (state === "paused") {
