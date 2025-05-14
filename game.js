@@ -517,7 +517,7 @@ function renderLeaderboardScreen() {
     const textWidth = ctx.measureText(text).width;
     const textX = canvas.width / 2 - textWidth / 2; // Center the text
 
-    ctx.font = "bold 22px 'Sigmar One', cursive"; // Fancy cursive font, bold
+    ctx.font = "bold 22px 'Arial' cursive"; // Fancy cursive font, bold
     ctx.fillStyle = "#fff";  // White text for names and scores
     ctx.fillText(text, textX, 180 + i * textSpacing);
   });
@@ -870,6 +870,19 @@ function update() {
       }
     }
   }
+    // ** Slow Mo Power-up Effect: **
+  if (activePowerUps.slowMo) {
+    globalSpeedMultiplier = 0.5; // Slow down the game speed by 50% while Slow Mo is active
+  } else {
+    globalSpeedMultiplier = 1;  // Default speed when slow mo is not active
+  }
+
+  // Reset slowMo after its timer expires
+  if (activePowerUps.slowMo && powerUpTimers.slowMo <= 0) {
+    activePowerUps.slowMo = false;
+    globalSpeedMultiplier = 1; // Reset to normal speed
+  }
+
   
   if (poisonTimer > 0) {
     poisonTimer--;
