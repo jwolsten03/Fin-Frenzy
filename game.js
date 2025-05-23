@@ -36,6 +36,7 @@ let poisonTimer = 0;
 
 let activeCurrent = null; // holds current info or null
 let currentSpawnTimer = 0;
+let firebaseLeaderboard = null;
 
 const profileBg = new Image();
 profileBg.src = "assets/profile-bg.png";
@@ -247,6 +248,7 @@ document.addEventListener("keydown", e => {
     keys[e.code] = true;   
     if (state === "leaderboard") {
       if (e.key === "Escape" || e.key === "b") {
+        firebaseLeaderboard = null; 
         state = "title";
       }
     }
@@ -473,83 +475,75 @@ function renderLeaderboardScreen() {
   ctx.fillStyle = "#001";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Draw the leaderboard background image
   if (leaderboardBg.complete && leaderboardBg.naturalWidth > 0) {
-    ctx.drawImage(leaderboardBg, 0, 0, canvas.width, canvas.height);  // Use this image as the background
+    ctx.drawImage(leaderboardBg, 0, 0, canvas.width, canvas.height);
   }
 
-  // Add a semi-transparent dark overlay for better contrast with text
   ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Set text style with gradient and bold
   const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
-  gradient.addColorStop(0, "#ffb347");  // Light orange
-  gradient.addColorStop(1, "#ff7f00");  // Dark orange
+  gradient.addColorStop(0, "#ffb347");
+  gradient.addColorStop(1, "#ff7f00");
 
-  ctx.fillStyle = gradient; // Apply gradient
-  ctx.font = "bold 40px 'Sigmar One', cursive"; // Fancy cursive font, bold
+  ctx.fillStyle = gradient;
+  ctx.font = "bold 40px 'Sigmar One', cursive";
   ctx.textAlign = "center";
-  ctx.shadowColor = "#ff7f00"; // Orange shadow
+  ctx.shadowColor = "#ff7f00";
   ctx.shadowBlur = 12;
   ctx.fillText("Leaderboard", canvas.width / 2, 80);
 
-  // Reset shadow after the title
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
 
-  ctx.font = "bold 24px 'Sigmar One', cursive"; // Fancy cursive font, bold
+  ctx.font = "bold 24px 'Sigmar One', cursive";
   ctx.fillText("Top Scores:", canvas.width / 2, 140);
 
-  // Get leaderboard data from localStorage
-  let leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
-
-  // Sort the leaderboard in descending order by score
-  leaderboard.sort((a, b) => b.score - a.score);
-
-  // Limit to top 5 scores
-  leaderboard = leaderboard.slice(0, 5);
-
-  // Display the leaderboard
-  const textSpacing = 40;
-  leaderboard.forEach((entry, i) => {
-    const text = `${i + 1}. ${entry.name} - ${entry.score}m`;
-    const textWidth = ctx.measureText(text).width;
-    const textX = canvas.width / 2 - textWidth / 2; // Center the text
-
-    ctx.font = "bold 22px 'Arial' cursive"; // Fancy cursive font, bold
-    ctx.fillStyle = "#fff";  // White text for names and scores
-    ctx.fillText(text, textX, 180 + i * textSpacing);
-  });
-
-  // Add a button text at the bottom with a nice gradient and shadow
-  ctx.font = "bold 18px 'Sigmar One', cursive"; // Fancy cursive font, bold
+  ctx.font = "20px Arial";
   ctx.fillStyle = "#fff";
-  ctx.shadowColor = "#ffb347";  // Light shadow for the button
+
+  if (firebaseLeaderboard === null) {
+    ctx.fillText("Loading leaderboard...", canvas.width / 2, 200);
+  } else {
+    const textSpacing = 40;
+    ctx.font = "bold 22px Arial";
+    firebaseLeaderboard.forEach((entry, i) => {
+      const text = `${i + 1}. ${entry.name} - ${entry.score}m`;
+      ctx.fillText(text, canvas.width / 2, 180 + i * textSpacing);
+    });
+  }
+
+  ctx.font = "bold 18px 'Sigmar One', cursive";
+  ctx.fillStyle = "#fff";
+  ctx.shadowColor = "#ffb347";
   ctx.shadowBlur = 8;
   ctx.fillText("Press ESC to return", canvas.width / 2, canvas.height - 40);
 
-  // Reset shadow
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
 }
 
+
+
+
 function saveLeaderboard(name, score) {
-  // Get existing leaderboard from localStorage
-  let leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+  const entry = {
+    name: name || "Player",
+    score: score,
+    timestamp: Date.now()
+  };
 
-  // Add the new score
-  leaderboard.push({ name: name || "Player", score: score });
+  // 🔹 Save locally
+  let localBoard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+  localBoard.push(entry);
+  localBoard.sort((a, b) => b.score - a.score);
+  localBoard = localBoard.slice(0, 5);
+  localStorage.setItem("leaderboard", JSON.stringify(localBoard));
 
-  // Sort leaderboard by score
-  leaderboard.sort((a, b) => b.score - a.score);
-
-  // Limit to top 5 scores
-  leaderboard = leaderboard.slice(0, 5);
-
-  // Save the updated leaderboard back to localStorage
-  localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+  // 🔹 Save globally
+  firebase.database().ref("leaderboard").push(entry);
 }
+
 
 // Start or restart the game
 function startGame() {
@@ -861,6 +855,27 @@ function update() {
   if (state !== "playing") return;
 
   frameCount++; // Always increment to avoid freeze during edge damage
+      // Check if we should start the shark event (example: player reaches 3000m)
+      if (score >= 3000 && !sharkEventStarted) {
+        startSharkEvent();  // Call the function to start the event
+        sharkEventStarted = true;
+      }
+  
+      // // Update the shark event while it's active
+      // if (sharkEventStarted) {
+      //   updateSharkEvent();  // Update the event (e.g., shark chasing the player)
+      // }
+  
+      // // Draw the shark event (e.g., display the shark and player interactions)
+      // if (sharkEventStarted) {
+      //   drawSharkEvent();
+      // }
+  
+      // // End the shark event if the player escapes or is caught
+      // if (shouldEndSharkEvent) {
+      //   endSharkEvent();
+      //   sharkEventStarted = false;  // Reset event
+      // }
   coinSpawnTimer++;
   for (let key in powerUpTimers) {
     if (powerUpTimers[key] > 0) {
@@ -1848,10 +1863,23 @@ function draw() {
       
         return; // ⛔ prevent game rendering
       }
-  if (state === "leaderboard") {
-        renderLeaderboardScreen();
+      if (state === "leaderboard") {
+        if (firebaseLeaderboard === null) {
+          firebase.database().ref("leaderboard").once("value").then(snapshot => {
+            let scores = [];
+            snapshot.forEach(child => {
+              scores.push(child.val());
+            });
+      
+            scores.sort((a, b) => b.score - a.score);
+            firebaseLeaderboard = scores.slice(0, 5);
+          });
+        }
+      
+        renderLeaderboardScreen(); // Always render (shows "Loading..." while waiting)
         return;
       }
+      
       
   // Title screen
   if (state === "title") {
