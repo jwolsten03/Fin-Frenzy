@@ -33,6 +33,9 @@ let levelUpMessages = [];
 let levelUpsThisRun = [];
 let lastPowerUpsCollected = 0;
 let poisonTimer = 0;
+let playerFacing = 1;       // current facing, smoothly animated
+let targetFacing = 1;       // target facing, instantly changes
+let sharkEventCompleted = false;
 
 let activeCurrent = null; // holds current info or null
 let currentSpawnTimer = 0;
@@ -222,7 +225,8 @@ let obstacles = [];
 let obstacleSpawnTimer = 0;
 let nextObstacleIn = 45 + Math.floor(Math.random() * 20); // 45–65
 function getCurrentSpeed() {
-    return (2.5 + frameCount / 1200) * globalSpeedMultiplier; // example
+  const baseSpeed = (2.5 + frameCount / 1200) * globalSpeedMultiplier;
+  return isSharkEventActive() ? -baseSpeed : baseSpeed;  
   }
    
   
@@ -523,7 +527,35 @@ function renderLeaderboardScreen() {
   ctx.shadowBlur = 0;
 }
 
+function handleGameOver() {
+  stats.totalGames += 1;
+      stats.mostCoins = Math.max(stats.mostCoins, coinsCollected);
+      stats.totalPowerups += powerUpsCollectedThisRun;
+      localStorage.setItem("finfrenzy_stats", JSON.stringify(stats));
+      localStorage.setItem("finfrenzy_xp", currentXP);
+      localStorage.setItem("finfrenzy_level", currentLevel);
 
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("boostdash_highscore", highScore);
+      }
+      if (score > bestDistance) {
+        bestDistance = score;
+        localStorage.setItem("boostdash_bestDistance", bestDistance);
+      }
+
+      totalCoins += coinsCollected;
+      localStorage.setItem("boostdash_totalCoins", totalCoins);
+
+      backgroundMusic.pause();
+
+      // Save score to leaderboard
+      const playerName = prompt("Enter your name to save your score:");
+      saveLeaderboard(playerName, score);
+      
+      endSharkEvent();
+      state = "gameover";
+}
 
 
 function saveLeaderboard(name, score) {
@@ -555,6 +587,7 @@ function startGame() {
           console.warn("Autoplay blocked, will retry on next input.", e);
         });
       }
+    endSharkEvent();  // ✅ make sure shark event is reset when starting new game
     player = {
         x: 100,
         y: 200,
@@ -855,27 +888,15 @@ function update() {
   if (state !== "playing") return;
 
   frameCount++; // Always increment to avoid freeze during edge damage
-      // Check if we should start the shark event (example: player reaches 3000m)
-      if (score >= 3000 && !sharkEventStarted) {
-        startSharkEvent();  // Call the function to start the event
-        sharkEventStarted = true;
-      }
-  
-      // // Update the shark event while it's active
-      // if (sharkEventStarted) {
-      //   updateSharkEvent();  // Update the event (e.g., shark chasing the player)
-      // }
-  
-      // // Draw the shark event (e.g., display the shark and player interactions)
-      // if (sharkEventStarted) {
-      //   drawSharkEvent();
-      // }
-  
-      // // End the shark event if the player escapes or is caught
-      // if (shouldEndSharkEvent) {
-      //   endSharkEvent();
-      //   sharkEventStarted = false;  // Reset event
-      // }
+    // Smoothly update player facing direction
+  if (isSharkEventActive()) {
+    targetFacing = -1;  // face left (shark event)
+  } else {
+    targetFacing = 1;   // face right (normal)
+  }
+  const turnSpeed = 0.1;  // adjust to control smoothness (0.05–0.2 range)
+  playerFacing += (targetFacing - playerFacing) * turnSpeed;
+
   coinSpawnTimer++;
   for (let key in powerUpTimers) {
     if (powerUpTimers[key] > 0) {
@@ -905,8 +926,7 @@ function update() {
       health -= 10;
       damageFlashTimer = 6;
       if (health <= 0) {
-        state = "gameover";
-        backgroundMusic.pause();
+        handleGameOver();
       }
     }
   }
@@ -1005,6 +1025,10 @@ function update() {
   // Gravity
   player.dy += gravity;
   player.y += player.dy;
+  if (isSharkEventActive()) {
+    player.x -= 4;  // adjust this speed to match visual feel
+    if (player.x < 50) player.x = 50;  // prevent going offscreen left
+  }
 
   // Floor and ceiling limits
   if (player.y + player.height > canvas.height) {
@@ -1022,33 +1046,7 @@ function update() {
   // Edge timer + damage
   if (player.y <= 5 || player.y + player.height >= canvas.height - 5) {
     if (health <= 0) {
-      // Update stats
-      stats.totalGames += 1;
-      stats.mostCoins = Math.max(stats.mostCoins, coinsCollected);
-      stats.totalPowerups += powerUpsCollectedThisRun;
-      localStorage.setItem("finfrenzy_stats", JSON.stringify(stats));
-      localStorage.setItem("finfrenzy_xp", currentXP);
-      localStorage.setItem("finfrenzy_level", currentLevel);
-
-      if (score > highScore) {
-        highScore = score;
-        localStorage.setItem("boostdash_highscore", highScore);
-      }
-      if (score > bestDistance) {
-        bestDistance = score;
-        localStorage.setItem("boostdash_bestDistance", bestDistance);
-      }
-
-      totalCoins += coinsCollected;
-      localStorage.setItem("boostdash_totalCoins", totalCoins);
-
-      backgroundMusic.pause();
-
-      // Save score to leaderboard
-      const playerName = prompt("Enter your name to save your score:");
-      saveLeaderboard(playerName, score);
-
-      state = "gameover";
+      handleGameOver();
     }
     if (score > bestDistance) {
       bestDistance = score;
@@ -1155,34 +1153,7 @@ function update() {
         health -= 50;
         damageFlashTimer = 10;
         if (health <= 0) {
-          // Update stats
-          stats.totalGames += 1;
-          stats.mostCoins = Math.max(stats.mostCoins, coinsCollected);
-          stats.totalPowerups += powerUpsCollectedThisRun;
-          localStorage.setItem("finfrenzy_stats", JSON.stringify(stats));
-          localStorage.setItem("finfrenzy_xp", currentXP);
-          localStorage.setItem("finfrenzy_level", currentLevel);
-
-          if (score > highScore) {
-            highScore = score;
-            localStorage.setItem("boostdash_highscore", highScore);
-          }
-
-          if (score > bestDistance) {
-            bestDistance = score;
-            localStorage.setItem("boostdash_bestDistance", bestDistance);
-          }
-
-          totalCoins += coinsCollected;
-          localStorage.setItem("boostdash_totalCoins", totalCoins);
-
-          backgroundMusic.pause();
-
-          // Save score to leaderboard
-          const playerName = prompt("Enter your name to save your score:");
-          saveLeaderboard(playerName, score);
-
-          state = "gameover";
+          handleGameOver();
         }
       }
 
@@ -1223,7 +1194,7 @@ function update() {
       }
     }
   }
-
+  updateSharkEvent();
   for (let i = 0; i < powerUps.length; i++) {
     let p = powerUps[i];
     p.x -= getCurrentSpeed();
@@ -1268,6 +1239,10 @@ function update() {
 
   // Score increase
   if (frameCount % 6 === 0) {
+    if ((score === 1500 || score === 3000 || score === 4500 || score === 6000) && !isSharkEventActive()) {
+      startSharkEvent();
+      sharkEventCompleted = true;
+  }  
     score += activePowerUps.doubleScore ? 2 : 1;
 
     const newCoins = coinsCollected - lastLevelScore;
@@ -1357,8 +1332,9 @@ function draw() {
     if (backgroundImage.complete && backgroundImage.naturalWidth > 0) {
       ctx.drawImage(backgroundImage, bgX, 0, canvas.width, canvas.height);
       ctx.drawImage(backgroundImage, bgX + canvas.width, 0, canvas.width, canvas.height);
+      ctx.drawImage(backgroundImage, bgX - canvas.width, 0, canvas.width, canvas.height);
     }
-    
+    drawSharkEvent(ctx);
   
       // Draw player sprite with tilt
     if (state !== "title" && heroImg.complete && heroImg.naturalWidth > 0) {
@@ -1368,6 +1344,7 @@ function draw() {
       
         ctx.save();
         ctx.translate(cx, cy);        // move to sprite center
+        ctx.scale(playerFacing, 1);
         ctx.rotate(angle);            // apply tilt
         // --- Composite glow effect ---
         let glowColors = [];
@@ -1384,12 +1361,14 @@ function draw() {
           ctx.shadowBlur = 15 + 5 * (glowColors.length - 1);
           ctx.shadowColor = glowColors[0]; // pick first to apply
         }
+        // Adjust horizontal offset if flipping
+        const offsetX = playerFacing < 0 ? -player.width / 2 : -player.width / 2;
         ctx.drawImage(
-          heroImg,
-          -player.width / 2,
-          -player.height / 2,
-          player.width,
-          player.height
+            heroImg,
+            offsetX,
+            -player.height / 2,
+            player.width,
+            player.height
         );
         // Add secondary glows by overlaying transparent copies
         if (glowColors.length > 1) {
@@ -1473,7 +1452,13 @@ function draw() {
   // Draw score
   if (state === "playing" || state === "gameover") {
     if (state === "playing") {
+      if (isSharkEventActive()) {
+        bgX += Math.abs(getCurrentSpeed()) * 0.25;
+        if (bgX >= canvas.width) bgX -= canvas.width;  // keep within 0 to canvas.width
+    } else {
         bgX -= getCurrentSpeed() * 0.25;
+        if (bgX <= -canvas.width) bgX += canvas.width;  // keep within -canvas.width to 0
+    }    
       }      
     if (bgX <= -canvas.width) bgX = 0;
     ctx.fillStyle = "#fff";
