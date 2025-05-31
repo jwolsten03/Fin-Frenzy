@@ -249,7 +249,16 @@ const boostPower = -10 * 0.75;
 
 // ----------------- keyboard controls -----------------
 document.addEventListener("keydown", e => {
-    keys[e.code] = true;   
+    keys[e.code] = true;  
+    if (state === "news" && (e.code === "Escape" || e.code === "KeyB")) {
+      state = "title";
+  }  
+    if (state === "settings") {
+      if (e.code === "Digit1") toggleMusic();
+      if (e.code === "Digit2") toggleSound();
+      if (e.code === "Digit3") resetProgress();
+      if (e.code === "Escape" || e.code === "KeyB") state = "title";
+    }  
     if (state === "leaderboard") {
       if (e.key === "Escape" || e.key === "b") {
         firebaseLeaderboard = null; 
@@ -382,15 +391,24 @@ document.addEventListener("keydown", e => {
     
     if (state === "playing" && e.code === "KeyP") {
       state = "paused";
-      backgroundMusic.pause();
-    } else if (state === "paused" && e.code === "KeyP") {
-      state = "playing";
-      backgroundMusic.play();
-    } else if (state === "paused" && e.code === "KeyR") {
-      state = "title";
-      backgroundMusic.pause();
-      backgroundMusic.currentTime = 0;
-    }    
+      if (settings.musicEnabled) {
+          backgroundMusic.pause();
+      }
+      } else if (state === "paused" && e.code === "KeyP") {
+          state = "playing";
+          if (settings.musicEnabled) {
+              backgroundMusic.play().catch(e => {
+                  console.warn("Autoplay blocked, will retry on next input.", e);
+              });
+          }
+      } else if (state === "paused" && e.code === "KeyR") {
+          state = "title";
+          if (settings.musicEnabled) {
+              backgroundMusic.pause();
+              backgroundMusic.currentTime = 0;
+          }
+      }
+     
   });
   document.addEventListener("keyup", e => keys[e.code] = false);
   
@@ -581,12 +599,12 @@ function saveLeaderboard(name, score) {
 function startGame() {
     currentXP = parseFloat(localStorage.getItem("finfrenzy_xp") || "0");
     currentLevel = parseInt(localStorage.getItem("finfrenzy_level") || "1");
-    if (backgroundMusic.paused) {
-        backgroundMusic.currentTime = 0;
-        backgroundMusic.play().catch(e => {
+    if (settings.musicEnabled && backgroundMusic.paused) {
+      backgroundMusic.currentTime = 0;
+      backgroundMusic.play().catch(e => {
           console.warn("Autoplay blocked, will retry on next input.", e);
-        });
-      }
+      });
+    }
     endSharkEvent();  // ✅ make sure shark event is reset when starting new game
     player = {
         x: 100,
@@ -1013,7 +1031,10 @@ function update() {
   if (boostHeld && !boostPressedLastFrame) {
     player.dy = boostPower;
     boostSound.currentTime = 0;
-    boostSound.play();
+    if (settings.soundEnabled) {
+      boostSound.currentTime = 0;
+      boostSound.play();
+  ``}  
   }
   boostPressedLastFrame = boostHeld;
 
@@ -1132,8 +1153,10 @@ function update() {
     }
 
     if (checkCollision(player, obs) && damageCooldown === 0) {
-      crashSound.play();
-
+      if (settings.soundEnabled) {
+        crashSound.currentTime = 0;
+        crashSound.play();
+    }    
       if (activePowerUps.chomp) {
         if (obs.type === "fall") {
           poisonTimer = 300; // lasts 5 seconds
@@ -1171,7 +1194,10 @@ function update() {
     coin.x -= getCurrentSpeed();
 
     if (checkCollision(player, coin)) {
-      collectSound.play();
+      if (settings.soundEnabled) {
+        collectSound.currentTime = 0;
+        collectSound.play();
+    }    
       coinsCollected++;
       coins.splice(i, 1);
       i--;
@@ -1200,7 +1226,10 @@ function update() {
     p.x -= getCurrentSpeed();
 
     if (checkCollision(player, p)) {
-      collectSound.play();
+      if (settings.soundEnabled) {
+        collectSound.currentTime = 0;
+        collectSound.play();
+    }    
       powerUpsCollectedThisRun++;
       switch (p.type) {
         case "shield":
@@ -1222,7 +1251,10 @@ function update() {
           activePowerUps.chomp = true;
           powerUpTimers.chomp = 900;
           chompSound.currentTime = 0;
-          chompSound.play();
+          if (settings.soundEnabled) {
+            chompSound.currentTime = 0;
+            chompSound.play();
+        }        
           break;
       }
 
@@ -1864,6 +1896,16 @@ function draw() {
         renderLeaderboardScreen(); // Always render (shows "Loading..." while waiting)
         return;
       }
+      if (state === "settings") {
+        drawSettingsScreen(ctx, canvas);
+        return; // skip rest of draw
+    }
+      if (state === "news") {
+        drawNewsScreen(ctx, canvas);
+        return;
+    }
+  
+    
       
       
   // Title screen
@@ -1895,39 +1937,45 @@ function draw() {
     const btnWidth = 180;
     const btnHeight = 50;
     const btnMargin = 20;
-    const startY = canvas.height / 2 + 40; // Slightly lower to account for the directions text
+    const startY = canvas.height / 2 + 40;
 
-    // Button positions for 2x2 grid
-    const startX = (canvas.width - 2 * btnWidth - btnMargin) / 2; // Center the buttons
+    // Calculate startX for two columns centered
+    const startX = (canvas.width - 2 * btnWidth - btnMargin) / 2;
+
+    // Button positions for 2x3 grid
     const buttonPositions = [
-        { x: startX, y: startY },                      // First button
-        { x: startX + btnWidth + btnMargin, y: startY }, // Second button
-        { x: startX, y: startY + btnHeight + btnMargin }, // Third button
-        { x: startX + btnWidth + btnMargin, y: startY + btnHeight + btnMargin } // Fourth button
+        { x: startX, y: startY },                                   // Row 1, Col 1
+        { x: startX + btnWidth + btnMargin, y: startY },           // Row 1, Col 2
+        { x: startX, y: startY + btnHeight + btnMargin },          // Row 2, Col 1
+        { x: startX + btnWidth + btnMargin, y: startY + btnHeight + btnMargin }, // Row 2, Col 2
+        { x: startX, y: startY + 2 * (btnHeight + btnMargin) },    // Row 3, Col 1
+        { x: startX + btnWidth + btnMargin, y: startY + 2 * (btnHeight + btnMargin) } // Row 3, Col 2 (empty)
     ];
 
+    // Button labels and actions
     const labels = [
-        { text: "Start Game",    action: () => startGame() },
-        { text: "Player Profile", action: () => { state = "profile"; } },
-        { text: "Shop",          action: () => { state = "shop"; } },
-        { text: "Leaderboard",    action: () => { state = "leaderboard"; } }
+        { text: "Start Game",      action: () => startGame() },
+        { text: "Player Profile",  action: () => { state = "profile"; } },
+        { text: "Shop",            action: () => { state = "shop"; } },
+        { text: "Leaderboard",     action: () => { state = "leaderboard"; } },
+        { text: "Settings",        action: () => { state = "settings"; } },
+        { text: "News",            action: () => { state = "news"; } }
     ];
 
-    // Draw buttons in a 2x2 grid layout
+    // Draw buttons in grid layout
     for (let i = 0; i < labels.length; i++) {
         const button = buttonPositions[i];
         ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
         drawRoundedRect(button.x, button.y, btnWidth, btnHeight, 12);
         ctx.fill();
 
-        ctx.strokeStyle = "#00ccff"; // Blue outline
+        ctx.strokeStyle = "#00ccff";
         ctx.lineWidth = 2;
         drawRoundedRect(button.x, button.y, btnWidth, btnHeight, 12);
         ctx.stroke();
 
-        // Button text (original font style)
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 18px Arial"; // Keeping original font
+        ctx.font = "bold 18px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(labels[i].text, button.x + btnWidth / 2, button.y + btnHeight / 2);
@@ -1941,6 +1989,7 @@ function draw() {
             onClick: labels[i].action
         });
     }
+
 }
 
   

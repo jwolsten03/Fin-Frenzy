@@ -1,5 +1,7 @@
 (function() {
     let sharkActive = false;
+    let sharkWarningTimer = 0;    // counts down before shark arrives
+    const sharkWarningDuration = 180;  // e.g., 3 seconds at 60fps
     let sharkX = 0;
     let sharkY = 0;
     let sharkSpeed = 10;
@@ -14,6 +16,7 @@
     function startSharkEvent() {
         console.log("Shark event started!");
         sharkActive = true;
+        sharkWarningTimer = sharkWarningDuration;  // start warning countdown
         sharkEventTimer = sharkEventDuration;  // reset timer
         sharkX = canvas.width + 100;
         sharkNoticeTimer = 120;  // show notice for 2 seconds (120 frames at 60 FPS)
@@ -21,22 +24,36 @@
     }    
 
     function updateSharkEvent() {
+        // If we’re still flashing the warning, delay shark activation
+        if (sharkNoticeTimer > 0) {
+            sharkNoticeTimer--;
+            if (sharkNoticeTimer === 0) {
+                console.log("Shark event started!");
+                sharkActive = true;
+                sharkEventTimer = sharkEventDuration;
+                sharkX = canvas.width + 100;
+                sharkY = Math.random() * (canvas.height - 100);
+            }
+            return;  // skip shark movement until after notice finishes
+        }
+    
         if (!sharkActive) return;
     
         sharkX -= sharkSpeed;
-        
-        // Smoothly track the player's vertical position
-        const smoothing = 0.03;  // adjust 0.03–0.1 for more or less sharpness
-        const targetY = player.y + player.height / 2 - 240 / 2;  // center the shark
+    
+        // Smooth tracking...
+        const smoothing = 0.04;
+        const targetY = player.y + player.height / 2 - 240 / 2;
         sharkY += (targetY - sharkY) * smoothing;
-        // Check collision with player:
+    
+        // Hitbox check...
         const imageWidth = 240;
         const imageHeight = 240;
-        const hitboxWidth = 100;   // or experiment with 140 or 120 if needed
+        const hitboxWidth = 100;
         const hitboxHeight = 80;
         const offsetX = (imageWidth - hitboxWidth) / 2;
         const offsetY = (imageHeight - hitboxHeight) / 2;
-
+    
         if (
             player.x < sharkX + offsetX + hitboxWidth &&
             player.x + player.width > sharkX + offsetX &&
@@ -49,7 +66,7 @@
                 } else {
                     health -= 50;
                     damageFlashTimer = 10;
-            
+    
                     if (health <= 0) {
                         handleGameOver();
                     }
@@ -57,20 +74,19 @@
                 damageCooldown = 30;
             }
         }
-
     
-        // Smooth wraparound logic:
         if (sharkX < -imageWidth) {
-            sharkX = canvas.width + 100;  // instantly move back to right side
-            sharkY = Math.random() * (canvas.height - 100);  // new random height
+            sharkX = canvas.width + 100;
+            sharkY = Math.random() * (canvas.height - 100);
             console.log("Shark loops back to right side!");
         }
-        // Decrease event timer
+    
         sharkEventTimer--;
         if (sharkEventTimer <= 0) {
             endSharkEvent();
         }
     }
+    
     
     
 
